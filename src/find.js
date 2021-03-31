@@ -38,7 +38,9 @@ module.exports = async function(collection, params) {
   // https://www.npmjs.com/package/mongoist#cursor-operations
   const findMethod = collection.findAsCursor ? 'findAsCursor' : 'find';
 
-  const query = collection[findMethod]({ $and: [cursorQuery, params.query] }, params.fields);
+  // If cursorQuery is empty, we can just send `params.query` as-is with the same result.
+  const predicate = Object.keys(cursorQuery).length === 0 ? params.query : { $and: [cursorQuery, params.query] };
+  const query = collection[findMethod](predicate, params.fields);
 
   /**
    * IMPORTANT
