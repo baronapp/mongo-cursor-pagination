@@ -26,6 +26,7 @@ const config = require('./config');
  *    -after {String} The _id to start querying the page.
  *    -before {String} The _id to start querying previous page.
  *    -hint {String} An optional index hint to provide to the mongo query
+ *    -read {String} An optional read preference for the mongo query
  */
 module.exports = async function(collection, params) {
   const removePaginatedFieldInResponse = params.fields && !params.fields[params.paginatedField];
@@ -54,6 +55,10 @@ module.exports = async function(collection, params) {
   const collatedQuery = config.COLLATION ? query.collation(config.COLLATION) : query;
   // Query one more element to see if there's another page.
   const cursor = collatedQuery.sort($sort).limit(params.limit + 1);
+  // Set read preference, if provided (and supported on the cursor).
+  if (params.read && cursor.setReadPreference) {
+    cursor.setReadPreference(params.read);
+  }
   if (params.hint) cursor.hint(params.hint);
   const results = await cursor.toArray();
 
