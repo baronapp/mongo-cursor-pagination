@@ -3,6 +3,7 @@ const dbUtils = require('./support/db');
 const _ = require('underscore');
 const { ObjectId } = require('mongoist');
 const driver = process.env.DRIVER;
+const MongoClient = require('mongodb');
 
 let mongod;
 
@@ -530,6 +531,26 @@ describe('find', () => {
 
         expect(res.results.length).toEqual(5);
         expect(res.results[0].color).toBeFalsy();
+      });
+
+      it('uses the read parameter', async () => {
+        if (driver === 'mongoist') return;
+
+        const collection = t.db.collection('test_paging');
+        const readPrefSpy = jest.spyOn(MongoClient.Cursor.prototype, 'setReadPreference');
+        try {
+          // Primary read preference should return results
+          expect(await paging.find(collection, { limit: 3, read: 'secondaryPreferred' }))
+            .toMatchObject({
+              results: expect.objectContaining({ length: 3 }),
+              hasNext: true,
+              hasPrevious: false,
+            });
+
+          expect(readPrefSpy).toHaveBeenCalledWith('secondaryPreferred');
+        } finally {
+          readPrefSpy.mockRestore();
+        }
       });
 
       it('does not return "next" or "previous" if there are no results', async () => {
@@ -1889,6 +1910,7 @@ describe('find', () => {
       expect(res.results.length).toEqual(4);
     });
   });
+
   describe('when max limits are hit', () => {
     const originalMaxLimit = paging.config.MAX_LIMIT;
     beforeAll(() => (paging.config.MAX_LIMIT = 2));
